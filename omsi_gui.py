@@ -193,12 +193,16 @@ class Omsi:
         return self.omsi_client is not None
 
     def update_save_status(self, save=None):
-        if save is None:
-            save = self.questions[self.selected_question].get_was_saved()
-        else:
-            self.questions[self.selected_question].set_saved(save)
+        if len(self.questions) != 0:
+            if save is None:
+                save = self.questions[self.selected_question].get_was_saved()
+            else:
+                self.questions[self.selected_question].set_saved(save)
 
-        self.text_saved.update(value="Saved" if save else "Unsaved")
+        self.text_saved.update(
+            value="Saved" if save else "Unsaved",
+            visible=self.selected_question != 0 and self.is_in_exam(),
+        )
 
     def show_about(self):
         about_layout = [
@@ -378,6 +382,7 @@ class Omsi:
     def run(self):
         self.window.read(timeout=0)
         self.window.maximize()
+        self.update_save_status()
 
         while True:
             self.event_loop(*self.window.read(timeout=5))
