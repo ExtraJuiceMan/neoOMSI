@@ -1,6 +1,7 @@
 import PySimpleGUI as sg
 import base64
 import argparse
+import io
 
 from omsi_client import OmsiSocketClient, OmsiDataManager
 from omsi_utility import parse_questions
@@ -27,6 +28,7 @@ class Omsi:
         self.answer_box = sg.Multiline(
             expand_y=True,
             expand_x=True,
+            disabled=True,
             background_color="khaki",
             font=("Courier New", 14),
         )
@@ -42,10 +44,10 @@ class Omsi:
         self.button_help = sg.Button("About / Help")
         self.button_settings = sg.Button("Settings")
         self.button_exit = sg.Button("Exit")
-        self.button_compile = sg.Button("Compile")
-        self.button_run = sg.Button("Run")
-        self.button_save = sg.Button("Save")
-        self.button_submit = sg.Button("Submit", button_color="green")
+        self.button_compile = sg.Button("Compile", disabled=True)
+        self.button_run = sg.Button("Run", disabled=True)
+        self.button_save = sg.Button("Save", disabled=True)
+        self.button_submit = sg.Button("Submit", button_color="green", disabled=True)
 
         self.text_saved = sg.Text("Saved")
         self.text_connected = sg.Text(
@@ -55,7 +57,6 @@ class Omsi:
         self.combo_question = sg.Combo(
             values=["No Session"],
             default_value="No Session",
-            size=(35, 30),
             key="question_select",
             readonly=True,
             enable_events=True,
@@ -146,13 +147,21 @@ class Omsi:
         self.event_dispatch_table = {
             self.button_help.key: self.show_about,
             self.button_start.key: self.start_session,
-            **dict.fromkeys([sg.WINDOW_CLOSED, self.button_exit.key], self.show_exit),
+            **dict.fromkeys(
+                [
+                    sg.WINDOW_CLOSED,
+                    sg.WINDOW_CLOSE_ATTEMPTED_EVENT,
+                    self.button_exit.key,
+                ],
+                self.show_exit,
+            ),
         }
 
         self.in_exam_dispatch_table = {
             self.combo_question.key: lambda: self.select_question(
                 self.combo_options.index(self.combo_question.get())
             ),
+            self.button_run.key: lambda: self.run_answer(self.selected_question),
             self.button_save.key: lambda: self.save_answer(self.selected_question),
             self.button_submit.key: lambda: self.submit_answer(self.selected_question),
         }
@@ -160,13 +169,14 @@ class Omsi:
         self.window = sg.Window(
             "neoOMSI",
             gui_layout,
-            default_element_size=(12, 1),
+            default_element_size=(14, 1),
             auto_size_text=False,
             auto_size_buttons=False,
-            default_button_element_size=(12, 1),
+            default_button_element_size=(14, 1),
             resizable=True,
             element_justification="left",
             icon=WINDOW_ICON,
+            disable_close=True,
         )
 
     def show_about(self):
@@ -261,20 +271,53 @@ class Omsi:
 
         self.select_question(0)
 
+    def is_answers_disabled(self):
+        return not self.is_in_exam() or self.selected_question == 0
+
     def select_question(self, index):
-        self.answer_box.update(disabled=index == 0)
         self.questions[self.selected_question].set_answer(self.answer_box.get())
-        q = self.questions[index]
-        self.question_box.update(value=q.get_question())
-        self.answer_box.update(value=q.get_answer())
-        self.combo_question.update(value=self.combo_options[index])
         self.selected_question = index
 
+        self.answer_box.update(
+            value=self.questions[index], disabled=self.is_answers_disabled()
+        )
+        self.button_compile.update(
+            disabled=self.is_answers_disabled()
+            or not self.questions[index].get_compiler()
+        )
+        self.button_run.update(
+            disabled=self.is_answers_disabled()
+            or not self.questions[index].get_has_run()
+        )
+        self.button_save.update(disabled=self.is_answers_disabled())
+        self.button_submit.update(disabled=self.is_answers_disabled())
+
+        self.question_box.update(value=self.questions[index].get_question())
+        self.answer_box.update(value=self.questions[index].get_answer())
+        self.combo_question.update(value=self.combo_options[index])
+
     def submit_answer(self, index):
-        pass
+        self.save_answer(index)
+
+        if len(self.questions[index].get_answer()) == 0:
+            self.show_error("No answer written.")
+            return
+
+        resp = self.omsi_client.send_file_with_retry(
+            f"omsi_answer{self.questions[index].get_question_number()}{self.questions[index].get_filetype()}",
+            io.BytesIO(self.questions[index].get_answer().encode("utf-8")),
+        )
+
+        sg.popup(resp)
 
     def save_answer(self, index):
+        self.questions[index].set_answer(self.answer_box.get())
         self.data.save_answer(self.questions[index])
+
+    def run_answer(self, index):
+        print(
+            f"{self.questions[index].get_run_program()} | {self.questions[index].get_run_cmd()}"
+        )
 
     def is_in_exam(self):
         return self.omsi_client is not None
@@ -291,7 +334,7 @@ class Omsi:
         self.window.maximize()
 
         while True:
-            self.event_loop(*self.window.read(timeout=10))
+            self.event_loop(*self.window.read(timeout=6))
 
 
 if __name__ == "__main__":

@@ -136,7 +136,8 @@ class OmsiSocketClient:
         )
 
         if self.receive_response() != RESPONSE_ACCEPT_READY:
-            pass
+            print("Server client desync")
+            return
 
         while True:
             chunk = file_bytes.read(SOCKET_CHUNK_SIZE)
@@ -156,4 +157,6 @@ class OmsiSocketClient:
 
                 return self.send_file(file_name, file_bytes)
             except socket.error as e:
+                print(e)
+            finally:
                 self.close()

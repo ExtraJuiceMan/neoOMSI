@@ -47,8 +47,8 @@ class OmsiQuestion:
     def get_compiler(self):
         return self.compiler
 
-    def get_run_program(self):
-        return self.run_program
+    def get_has_run(self):
+        return self.run_program == "y"
 
     def get_run_cmd(self):
         return self.run_cmd.split(" ")
