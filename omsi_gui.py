@@ -3,6 +3,7 @@ import base64
 import argparse
 import io
 import subprocess
+import time
 
 from omsi_client import OmsiSocketClient, OmsiDataManager
 from omsi_utility import parse_questions
@@ -17,6 +18,7 @@ class Omsi:
         self.omsi_client = None
         self.data = None
         self.selected_question = 0
+        self.connect_time = None
 
         self.question_box = sg.Multiline(
             expand_y=True,
@@ -54,7 +56,7 @@ class Omsi:
 
         self.text_saved = sg.Text("Unsaved")
         self.text_connected = sg.Text(
-            "Connected", visible=False, expand_x=True, expand_y=True
+            "Connected", visible=False, expand_x=True, expand_y=True, pad=(4, 4)
         )
 
         self.combo_question = sg.Combo(
@@ -276,6 +278,8 @@ class Omsi:
         self.button_start.update(visible=False)
         self.text_connected.update(visible=True)
 
+        self.connect_time = time.time()
+
         self.data = OmsiDataManager(id)
         self.data.create_exam_dir()
         self.data.write_questions(self.omsi_client.get_exam_questions())
@@ -315,12 +319,11 @@ class Omsi:
         self.update_save_status()
 
     def submit_answer(self, index):
-        self.save_answer(index)
-        self.run_answer(index)
-
         if len(self.questions[index].get_answer()) == 0:
             self.show_error("No answer written.")
             return
+
+        self.run_answer(index)
 
         resp = self.omsi_client.send_file_with_retry(
             f"omsi_answer{self.questions[index].get_question_number()}{self.questions[index].get_filetype()}",
@@ -363,8 +366,14 @@ class Omsi:
         if event in self.event_dispatch_table:
             self.event_dispatch_table[event]()
 
-        if self.is_in_exam() and event in self.in_exam_dispatch_table:
-            self.in_exam_dispatch_table[event]()
+        if self.is_in_exam():
+            self.text_connected.update(
+                value=time.strftime(
+                    "Connected %H:%M:%S", time.gmtime(time.time() - self.connect_time)
+                )
+            )
+            if event in self.in_exam_dispatch_table:
+                self.in_exam_dispatch_table[event]()
 
     def run(self):
         self.window.read(timeout=0)
