@@ -143,6 +143,20 @@ class Omsi:
             ],
         ]
 
+        self.event_dispatch_table = {
+            self.button_help.key: self.show_about,
+            self.button_start.key: self.start_session,
+            **dict.fromkeys([sg.WINDOW_CLOSED, self.button_exit.key], self.show_exit),
+        }
+
+        self.in_exam_dispatch_table = {
+            self.combo_question.key: lambda: self.select_question(
+                self.combo_options.index(self.combo_question.get())
+            ),
+            self.button_save.key: lambda: self.save_answer(self.selected_question),
+            self.button_submit.key: lambda: self.submit_answer(self.selected_question),
+        }
+
         self.window = sg.Window(
             "neoOMSI",
             gui_layout,
@@ -265,34 +279,19 @@ class Omsi:
     def is_in_exam(self):
         return self.omsi_client is not None
 
+    def event_loop(self, event, values):
+        if event in self.event_dispatch_table:
+            self.event_dispatch_table[event]()
+
+        if self.is_in_exam() and event in self.in_exam_dispatch_table:
+            self.in_exam_dispatch_table[event]()
+
     def run(self):
         self.window.read(timeout=0)
         self.window.maximize()
 
-        self.event_dispatch_table = {
-            self.button_help.key: self.show_about,
-            self.button_start.key: self.start_session,
-            **dict.fromkeys(
-                [sg.WINDOW_CLOSED, self.button_exit.key], lambda: self.show_exit()
-            ),
-        }
-
-        self.in_exam_dispatch_table = {
-            self.combo_question.key: lambda: self.select_question(
-                self.combo_options.index(self.combo_question.get())
-            ),
-            self.button_save.key: lambda: self.save_answer(self.selected_question),
-            self.button_submit.key: lambda: self.submit_answer(self.selected_question),
-        }
-
         while True:
-            event, values = self.window.read(timeout=10)
-
-            if event in self.event_dispatch_table:
-                self.event_dispatch_table[event]()
-
-            if self.is_in_exam() and event in self.in_exam_dispatch_table:
-                self.in_exam_dispatch_table[event]()
+            self.event_loop(*self.window.read(timeout=10))
 
 
 if __name__ == "__main__":
