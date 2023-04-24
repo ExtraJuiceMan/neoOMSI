@@ -155,14 +155,53 @@ class Omsi:
             icon=WINDOW_ICON,
         )
 
-    def show_error(self, message):
-        sg.popup_ok(
-            "Error\n" + message,
-            title="Error",
-            icon=WINDOW_ICON,
-            no_titlebar=True,
-            background_color="gray",
+    def show_about(self):
+        about_layout = [
+            [sg.Push(), sg.Image(WINDOW_ICON), sg.Push()],
+            [
+                sg.Text(
+                    "neoOMSI\nAuthor: ExtraConcentratedJuice\nFun and better OMSI client that you probably shouldn't use"
+                )
+            ],
+            [sg.Button("Close", bind_return_key=True)],
+        ]
+
+        about_window = sg.Window(
+            "About", about_layout, icon=WINDOW_ICON, finalize=True, modal=True
         )
+
+        about_window.force_focus()
+
+        return about_window.read(close=True)
+
+    def show_error(self, message):
+        error_layout = [
+            [sg.Image("error.png"), sg.Text("Error:".ljust(32) + "\n" + message)],
+            [sg.Button("OK", bind_return_key=True)],
+        ]
+
+        error_window = sg.Window(
+            "Error", error_layout, icon=WINDOW_ICON, finalize=True, modal=True
+        )
+
+        error_window.force_focus()
+
+        return error_window.read(close=True)
+
+    def show_settings(self):
+        pass
+
+    def show_exit(self):
+        if (
+            sg.popup_ok_cancel(
+                "Are you sure you want to exit?",
+                title="Exit",
+                icon=WINDOW_ICON,
+                image=WINDOW_ICON,
+            )
+            == "OK"
+        ):
+            exit()
 
     def start_session(self):
         hostname = self.input_hostname.get()
@@ -170,9 +209,12 @@ class Omsi:
         email = self.input_email.get()
         id = self.input_id.get()
 
-        if not port.isdigit():
-            self.show_error("Port is not valid")
+        if not port.isdigit() or int(port) < 0 or int(port) >= 65535:
+            self.show_error("Port is not valid.")
             return
+
+        if not hostname or not port or not email or not id:
+            self.show_error("All fields must be filled.")
 
         try:
             self.omsi_client = OmsiSocketClient(hostname, port, email, id)
@@ -206,9 +248,7 @@ class Omsi:
         self.select_question(0)
 
     def select_question(self, index):
-        if index == 0:
-            self
-
+        self.answer_box.update(disabled=index == 0)
         self.questions[self.selected_question].set_answer(self.answer_box.get())
         q = self.questions[index]
         self.question_box.update(value=q.get_question())
@@ -227,47 +267,32 @@ class Omsi:
 
     def run(self):
         self.window.read(timeout=0)
-
         self.window.maximize()
+
+        self.event_dispatch_table = {
+            self.button_help.key: self.show_about,
+            self.button_start.key: self.start_session,
+            **dict.fromkeys(
+                [sg.WINDOW_CLOSED, self.button_exit.key], lambda: self.show_exit()
+            ),
+        }
+
+        self.in_exam_dispatch_table = {
+            self.combo_question.key: lambda: self.select_question(
+                self.combo_options.index(self.combo_question.get())
+            ),
+            self.button_save.key: lambda: self.save_answer(self.selected_question),
+            self.button_submit.key: lambda: self.submit_answer(self.selected_question),
+        }
 
         while True:
             event, values = self.window.read(timeout=10)
 
-            if (
-                event == sg.WIN_CLOSED
-                or event == self.button_exit.key
-                and sg.popup_ok_cancel(
-                    "Are you sure you want to exit?",
-                    title="Exit",
-                    icon=WINDOW_ICON,
-                    image=WINDOW_ICON,
-                )
-                == "OK"
-            ):
-                break
+            if event in self.event_dispatch_table:
+                self.event_dispatch_table[event]()
 
-            if event == self.button_help.key:
-                sg.popup_ok(
-                    "neoOMSI\nUnofficial Just-For-Fun OMSI Client\n\nAuthor: ExtraConcentratedJuice",
-                    title="About",
-                )
-
-            if event == self.button_start.key:
-                self.start_session()
-
-            if not self.is_in_exam():
-                continue
-
-            if event == self.combo_question.key:
-                self.select_question(
-                    self.combo_options.index(self.combo_question.get())
-                )
-
-            if event == self.button_save.key:
-                self.save_answer(self.selected_question)
-
-            if event == self.button_submit.key:
-                self.submit_answer(self.selected_question)
+            if self.is_in_exam() and event in self.in_exam_dispatch_table:
+                self.in_exam_dispatch_table[event]()
 
 
 if __name__ == "__main__":
