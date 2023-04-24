@@ -22,6 +22,7 @@ class OmsiQuestion:
         self.run_program = run_program
         self.run_cmd = run_cmd
         self.compiler = compiler
+        self.was_saved = False
 
     def get_question(self):
         return self.question
@@ -52,6 +53,12 @@ class OmsiQuestion:
 
     def get_run_cmd(self):
         return self.run_cmd.split(" ")
+
+    def get_was_saved(self):
+        return self.was_saved
+
+    def set_saved(self, saved):
+        self.was_saved = saved
 
 
 def parse_questions(filename):
