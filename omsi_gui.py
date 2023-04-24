@@ -12,7 +12,6 @@ WINDOW_ICON = base64.b64encode(open(r"matloff.png", "rb").read())
 
 class Omsi:
     def __init__(self, hostname=None, port=None, email=None, id=None):
-        self.subproc = None
         self.questions = []
         self.combo_options = []
         self.omsi_client = None
@@ -64,6 +63,7 @@ class Omsi:
             key="question_select",
             readonly=True,
             enable_events=True,
+            auto_size_text=True,
         )
 
         gui_left_column = [
@@ -252,19 +252,19 @@ class Omsi:
         email = self.input_email.get()
         id = self.input_id.get()
 
-        if not port.isdigit() or int(port) < 0 or int(port) >= 65535:
-            self.show_error("Port is not valid.")
-            return
-
         if not hostname or not port or not email or not id:
             self.show_error("All fields must be filled.")
+            return
+
+        if not port.isdigit() or int(port) < 0 or int(port) >= 65535:
+            self.show_error("Port is not valid.")
             return
 
         try:
             self.omsi_client = OmsiSocketClient(hostname, port, email, id)
             self.omsi_client.open()
         except Exception as e:
-            self.show_error(f"Failed to open connection to server\n\n{e}")
+            self.show_error(f"Failed to open connection to server:\n\n{e}")
             self.omsi_client.close()
             self.omsi_client = None
             return
@@ -327,7 +327,11 @@ class Omsi:
             io.BytesIO(self.questions[index].get_answer().encode("utf-8")),
         )
 
-        sg.popup(resp)
+        sg.popup_ok(
+            "Server response received:\n" + resp,
+            title="Server Response",
+            icon=WINDOW_ICON,
+        )
 
     def save_answer(self, index):
         self.questions[index].set_answer(self.answer_box.get())
@@ -336,21 +340,24 @@ class Omsi:
 
     def run_answer(self, index):
         self.save_answer(index)
-        if self.questions[index].get_has_run():
-            proc = subprocess.Popen(
-                self.questions[index].get_run_cmd(),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-            )
 
-            out, _ = proc.communicate()
+        if not self.questions[index].get_has_run():
+            return
 
-            sg.popup_scrolled(
-                out.decode("utf-8"),
-                title=" ".join(self.questions[index].get_run_cmd()),
-                non_blocking=True,
-                icon=WINDOW_ICON,
-            )
+        proc = subprocess.Popen(
+            self.questions[index].get_run_cmd(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+
+        out, _ = proc.communicate()
+
+        sg.popup_scrolled(
+            out.decode("utf-8"),
+            title="Run - " + " ".join(self.questions[index].get_run_cmd()),
+            non_blocking=True,
+            icon=WINDOW_ICON,
+        )
 
     def event_loop(self, event, values):
         if event in self.event_dispatch_table:
