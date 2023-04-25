@@ -36,3 +36,7 @@ You should click on the "Settings" button to configure the client.
 ## Disclaimer
 
 This is NOT an official client! You will most likely get in trouble if you attempt to use this on an actual exam, so don't do that. This project was developed for fun!
+
+## Sample Image
+![OMSI example](https://raw.githubusercontent.com/ExtraConcentratedJuice/neoOMSI/main/sample.png)
+
