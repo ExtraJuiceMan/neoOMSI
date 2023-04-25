@@ -40,7 +40,7 @@ class Omsi:
             disabled=True,
             background_color="pale turquoise",
             text_color="black",
-            font=("Courier New", 14),
+            font=("Courier New", self.settings.font_size),
         )
 
         self.answer_box = sg.Multiline(
@@ -50,7 +50,7 @@ class Omsi:
             disabled=True,
             background_color="khaki",
             text_color="black",
-            font=("Courier New", 14),
+            font=("Courier New", self.settings.font_size),
             enable_events=True,
         )
 
@@ -316,6 +316,10 @@ class Omsi:
         rpath_input = sg.Input(self.settings.r_path)
         pdf_reader_input = sg.Input(self.settings.pdf_reader_path)
         pdf_input = sg.Input(self.settings.pdf_path)
+        font_size_input = sg.Spin(
+            [x for x in range(4, 32)],
+            self.settings.font_size,
+        )
 
         layout = [
             [
@@ -326,7 +330,7 @@ class Omsi:
             ],
             [
                 sg.Frame(
-                    "Options",
+                    "Program/File Paths",
                     layout=[
                         [
                             sg.Text(
@@ -357,6 +361,17 @@ This will open the PDF using the default PDF viewer on your system."""
                     element_justification="left",
                 )
             ],
+            [
+                sg.Frame(
+                    "Preferences",
+                    [
+                        [
+                            sg.Text("Editor Font Size"),
+                            font_size_input,
+                        ]
+                    ],
+                )
+            ],
             [sg.Save(), sg.Cancel()],
         ]
 
@@ -372,6 +387,10 @@ This will open the PDF using the default PDF viewer on your system."""
             self.settings.r_path = rpath_input.get().strip()
             self.settings.pdf_reader_path = pdf_reader_input.get().strip()
             self.settings.pdf_path = pdf_input.get().strip()
+            self.settings.font_size = font_size_input.get()
+
+            self.answer_box.update(font=("Courier New", self.settings.font_size))
+            self.question_box.update(font=("Courier New", self.settings.font_size))
 
             self.settings.save(CONFIG_FILE)
 
