@@ -360,16 +360,18 @@ This will open the PDF using the default PDF viewer on your system."""
             [sg.Save(), sg.Cancel()],
         ]
 
-        settings_window = sg.Window("Settings", layout, modal=True, finalize=True)
+        settings_window = sg.Window(
+            "Settings", layout, modal=True, finalize=True, icon=WINDOW_ICON
+        )
 
         settings_window.force_focus()
 
         event, values = settings_window.read(close=True)
 
         if event == "Save":
-            self.settings.r_path = rpath_input.get()
-            self.settings.pdf_reader_path = pdf_reader_input.get()
-            self.settings.pdf_path = pdf_input.get()
+            self.settings.r_path = rpath_input.get().strip()
+            self.settings.pdf_reader_path = pdf_reader_input.get().strip()
+            self.settings.pdf_path = pdf_input.get().strip()
 
             self.settings.save(CONFIG_FILE)
 
@@ -505,11 +507,23 @@ This will open the PDF using the default PDF viewer on your system."""
         if run_cmd[0] == "Rscript" and self.settings.r_path:
             run_cmd[0] = self.settings.r_path
 
-        proc = subprocess.Popen(
-            run_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
+        try:
+            proc = subprocess.Popen(
+                run_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        except Exception as e:
+            if isinstance(e, FileNotFoundError):
+                self.show_error(
+                    f"Could not run R interpreter: {' '.join(run_cmd)}.\nMake sure R is on the PATH or configure the executable's location in the settings.\n{e}"
+                )
+                return
+
+            self.show_error(
+                f"Failed to launch R interpreter: {' '.join(run_cmd)}\nError: {e}"
+            )
+            return
 
         out, _ = proc.communicate()
 
@@ -541,6 +555,9 @@ This will open the PDF using the default PDF viewer on your system."""
 
     def run(self):
         self.window.read(timeout=0)
+
+        self.window.bind(self.settings.hotkey_save, "Save")
+
         self.window.maximize()
         self.update_save_status()
 

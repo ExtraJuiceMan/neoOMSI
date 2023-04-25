@@ -61,6 +61,7 @@ class OmsiQuestion:
         self.was_saved = saved
 
 
+# https://github.com/matloff/omsi/blob/e6ee56bfc61613e3cf7655c8fcba14d2e21e172c/OmsiUtility.py#L7
 def parse_questions(filename):
     with open(filename, "r") as f:
         foundDescription = False
