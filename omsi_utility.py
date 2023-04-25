@@ -25,7 +25,7 @@ class OmsiQuestion:
         self.was_saved = False
 
     def get_question(self):
-        return self.question
+        return self.question.strip()
 
     def get_answer(self):
         return self.answer
