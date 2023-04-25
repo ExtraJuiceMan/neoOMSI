@@ -4,8 +4,10 @@ import argparse
 import io
 import subprocess
 import time
+import os
 
 from omsi_client import OmsiSocketClient, OmsiDataManager
+from omsi_settings import OmsiSettings
 from omsi_utility import parse_questions
 
 WINDOW_ICON = base64.b64encode(open(r"matloff.png", "rb").read())
@@ -13,9 +15,11 @@ WINDOW_ICON = base64.b64encode(open(r"matloff.png", "rb").read())
 CONNECT_END_KEY = "connect_end"
 SUBMIT_END_KEY = "submit_end"
 
+CONFIG_FILE = "omsi_settings.ini"
+
 
 class Omsi:
-    def __init__(self, hostname=None, port=None, email=None, id=None):
+    def __init__(self, hostname=None, port=None, email=None, id=None, settings=None):
         self.questions = []
         self.combo_options = []
         self.omsi_client = None
@@ -23,6 +27,12 @@ class Omsi:
         self.selected_question = 0
         self.connect_time = None
         self.request_in_progress = False
+
+        if settings is None:
+            self.settings = OmsiSettings()
+            self.settings.save(CONFIG_FILE)
+        else:
+            self.settings = settings
 
         self.question_box = sg.Multiline(
             expand_y=True,
@@ -159,6 +169,7 @@ class Omsi:
         self.event_dispatch_table = {
             self.button_help.key: self.show_about,
             self.button_start.key: self.start_session,
+            self.button_settings.key: self.show_settings,
             **dict.fromkeys(
                 [
                     sg.WINDOW_CLOSED,
@@ -167,6 +178,8 @@ class Omsi:
                 ],
                 self.show_exit,
             ),
+            self.button_pdf.key: self.open_pdf,
+            self.button_graph.key: self.open_graph,
         }
 
         self.in_exam_dispatch_table = {
@@ -300,7 +313,90 @@ class Omsi:
         return error_window.read(close=True)
 
     def show_settings(self):
-        pass
+        rpath_input = sg.Input(self.settings.r_path)
+        pdf_reader_input = sg.Input(self.settings.pdf_reader_path)
+        pdf_input = sg.Input(self.settings.pdf_path)
+
+        layout = [
+            [
+                sg.Frame(
+                    "Hotkeys",
+                    layout=[[sg.Text("Save"), sg.Push(), sg.Input(size=(12,))]],
+                )
+            ],
+            [
+                sg.Frame(
+                    "Options",
+                    layout=[
+                        [
+                            sg.Text(
+                                """If left empty, Rscript will be run using the 'Rscript' command and R needs to be on the PATH.
+If left empty, PDFs will be opened with the 'open' command.
+This will open the PDF using the default PDF viewer on your system."""
+                            )
+                        ],
+                        [
+                            sg.Text("Rscript Command/Path"),
+                            sg.Push(),
+                            rpath_input,
+                            sg.FileBrowse(file_types=[["Executable", ".exe"]]),
+                        ],
+                        [
+                            sg.Text("PDF Reader Command/Path"),
+                            sg.Push(),
+                            pdf_reader_input,
+                            sg.FileBrowse(file_types=[["Executable", ".exe"]]),
+                        ],
+                        [
+                            sg.Text("Reference PDF Path"),
+                            sg.Push(),
+                            pdf_input,
+                            sg.FileBrowse(file_types=[["PDF", ".pdf"]]),
+                        ],
+                    ],
+                    element_justification="left",
+                )
+            ],
+            [sg.Save(), sg.Cancel()],
+        ]
+
+        settings_window = sg.Window("Settings", layout, modal=True, finalize=True)
+
+        settings_window.force_focus()
+
+        event, values = settings_window.read(close=True)
+
+        if event == "Save":
+            self.settings.r_path = rpath_input.get()
+            self.settings.pdf_reader_path = pdf_reader_input.get()
+            self.settings.pdf_path = pdf_input.get()
+
+            self.settings.save(CONFIG_FILE)
+
+    def open_pdf(self):
+        if not self.settings.pdf_path:
+            self.show_error("No PDF reference file set in settings.")
+            return
+
+        if not os.path.exists(self.settings.pdf_path):
+            self.show_error(
+                f"The configured PDF path does not exist!\n{self.settings.pdf_path}"
+            )
+            return
+
+        subprocess.Popen(
+            [
+                self.settings.pdf_reader_path or "open",
+                self.settings.pdf_path,
+            ]
+        )
+
+    def open_graph(self):
+        if not os.path.exists("Rplots.pdf"):
+            self.show_error("No graph to open.")
+            return
+
+        subprocess.Popen([self.settings.pdf_reader_path or "open", "Rplots.pdf"])
 
     def show_exit(self):
         if (
@@ -404,8 +500,13 @@ class Omsi:
         if not self.questions[index].get_has_run():
             return
 
+        run_cmd = self.questions[index].get_run_cmd()
+
+        if run_cmd[0] == "Rscript" and self.settings.r_path:
+            run_cmd[0] = self.settings.r_path
+
         proc = subprocess.Popen(
-            self.questions[index].get_run_cmd(),
+            run_cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
         )
@@ -414,7 +515,7 @@ class Omsi:
 
         sg.popup_scrolled(
             out.decode("utf-8"),
-            title="Run - " + " ".join(self.questions[index].get_run_cmd()),
+            title="Run - " + " ".join(run_cmd),
             non_blocking=True,
             icon=WINDOW_ICON,
         )
@@ -460,4 +561,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    Omsi(args.hostname, args.port, args.email, args.id).run()
+    Omsi(
+        args.hostname, args.port, args.email, args.id, OmsiSettings.load(CONFIG_FILE)
+    ).run()
