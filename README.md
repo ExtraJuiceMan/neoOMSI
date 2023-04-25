@@ -1,3 +1,4 @@
+![OMSI](https://raw.githubusercontent.com/ExtraConcentratedJuice/neoOMSI/main/omsi.png)
 # neoOMSI | Modern Online Measurement of Student Insight
 
 - neoOMSI is an unofficial modern [OMSI](https://github.com/matloff/omsi) client.
