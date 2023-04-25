@@ -5,17 +5,25 @@ import io
 import subprocess
 import time
 import os
+import random
 
 from omsi_client import OmsiSocketClient, OmsiDataManager
 from omsi_settings import OmsiSettings
 from omsi_utility import parse_questions
 
-WINDOW_ICON = base64.b64encode(open(r"matloff.png", "rb").read())
+WINDOW_ICON = base64.b64encode(open(r"omsi.png", "rb").read())
+SMALL_WINDOW_ICON = base64.b64encode(open(r"omsi_small.png", "rb").read())
+MATLOFF = base64.b64encode(open(r"matloff.png", "rb").read())
 
 CONNECT_END_KEY = "connect_end"
 SUBMIT_END_KEY = "submit_end"
 
 CONFIG_FILE = "omsi_settings.ini"
+
+ABOUT = """neoOMSI
+Author: ExtraConcentratedJuice
+Repository: https://github.com/ExtraConcentratedJuice/neoOMSI
+Fun and better OMSI client that you probably shouldn't use"""
 
 
 class Omsi:
@@ -85,14 +93,7 @@ class Omsi:
         )
 
         gui_left_column = [
-            [sg.Image(source=WINDOW_ICON)],
-            [
-                sg.Text(
-                    "Remember, I am\nalways watching.",
-                    text_color="red",
-                    auto_size_text=True,
-                )
-            ],
+            [sg.Image(source="omsi.png")],
             [
                 sg.Frame(
                     "Session",
@@ -201,7 +202,7 @@ class Omsi:
             default_button_element_size=(14, 1),
             resizable=True,
             element_justification="left",
-            icon=WINDOW_ICON,
+            icon=SMALL_WINDOW_ICON,
             disable_close=True,
         )
 
@@ -282,16 +283,18 @@ class Omsi:
     def show_about(self):
         about_layout = [
             [sg.Push(), sg.Image(WINDOW_ICON), sg.Push()],
+            [sg.Text(ABOUT)],
             [
-                sg.Text(
-                    "neoOMSI\nAuthor: ExtraConcentratedJuice\nFun and better OMSI client that you probably shouldn't use"
-                )
-            ],
+                sg.Image(MATLOFF),
+                sg.Text("Remember, I am always watching.", text_color="red"),
+            ]
+            if self.is_in_exam()
+            else [],
             [sg.Button("Close", bind_return_key=True)],
         ]
 
         about_window = sg.Window(
-            "About", about_layout, icon=WINDOW_ICON, finalize=True, modal=True
+            "About", about_layout, icon=SMALL_WINDOW_ICON, finalize=True, modal=True
         )
 
         about_window.force_focus()
@@ -305,7 +308,7 @@ class Omsi:
         ]
 
         error_window = sg.Window(
-            "Error", error_layout, icon=WINDOW_ICON, finalize=True, modal=True
+            "Error", error_layout, icon=SMALL_WINDOW_ICON, finalize=True, modal=True
         )
 
         error_window.force_focus()
@@ -376,7 +379,7 @@ This will open the PDF using the default PDF viewer on your system."""
         ]
 
         settings_window = sg.Window(
-            "Settings", layout, modal=True, finalize=True, icon=WINDOW_ICON
+            "Settings", layout, modal=True, finalize=True, icon=SMALL_WINDOW_ICON
         )
 
         settings_window.force_focus()
@@ -420,15 +423,18 @@ This will open the PDF using the default PDF viewer on your system."""
         subprocess.Popen([self.settings.pdf_reader_path or "open", "Rplots.pdf"])
 
     def show_exit(self):
-        if (
-            sg.popup_ok_cancel(
-                "Are you sure you want to exit?",
-                title="Exit",
-                icon=WINDOW_ICON,
-                image=WINDOW_ICON,
-            )
-            == "OK"
-        ):
+        exit_confirm = sg.Window(
+            "Exit",
+            [
+                [sg.Image(WINDOW_ICON), sg.Text("Are you sure you want to exit?")],
+                [sg.Button("Exit", button_color="red"), sg.Cancel()],
+            ],
+            icon=SMALL_WINDOW_ICON,
+        )
+
+        event, value = exit_confirm.read(close=True)
+
+        if event == "Exit":
             exit()
 
     def start_session(self):
