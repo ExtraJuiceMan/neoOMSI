@@ -24,8 +24,8 @@ class Omsi:
         self.combo_options = []
         self.omsi_client = None
         self.data = None
-        self.selected_question = 0
         self.connect_time = None
+        self.selected_question = 0
         self.request_in_progress = False
 
         if settings is None:
