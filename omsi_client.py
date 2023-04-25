@@ -149,14 +149,22 @@ class OmsiSocketClient:
 
         return self.receive_response()
 
-    def send_file_with_retry(self, file_name, file_bytes: io.IOBase = None):
-        while True:
+    def send_file_with_retry(
+        self, file_name, file_bytes: io.IOBase = None, max_tries=3
+    ):
+        attempts = 0
+        err = None
+        while attempts < max_tries:
             try:
                 if not self.is_open():
                     self.open()
 
                 return self.send_file(file_name, file_bytes)
             except socket.error as e:
-                print(e)
+                err = e
             finally:
                 self.close()
+
+            attempts += 1
+
+        return err

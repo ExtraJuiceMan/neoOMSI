@@ -376,7 +376,7 @@ class Omsi:
         self.combo_question.update(disabled=False)
 
         if isinstance(res, Exception):
-            self.show_error("Failed to submit answer to server: " + res)
+            self.show_error(f"Failed to submit answer to server:\n{res}")
             return
 
         sg.popup_ok(
