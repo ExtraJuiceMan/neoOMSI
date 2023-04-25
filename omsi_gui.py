@@ -10,6 +10,9 @@ from omsi_utility import parse_questions
 
 WINDOW_ICON = base64.b64encode(open(r"matloff.png", "rb").read())
 
+CONNECT_END_KEY = "connect_end"
+SUBMIT_END_KEY = "submit_end"
+
 
 class Omsi:
     def __init__(self, hostname=None, port=None, email=None, id=None):
@@ -19,12 +22,14 @@ class Omsi:
         self.data = None
         self.selected_question = 0
         self.connect_time = None
+        self.request_in_progress = False
 
         self.question_box = sg.Multiline(
             expand_y=True,
             expand_x=True,
             disabled=True,
             background_color="pale turquoise",
+            text_color="black",
             font=("Courier New", 14),
         )
 
@@ -34,6 +39,7 @@ class Omsi:
             expand_x=True,
             disabled=True,
             background_color="khaki",
+            text_color="black",
             font=("Courier New", 14),
             enable_events=True,
         )
@@ -204,6 +210,62 @@ class Omsi:
             visible=self.selected_question != 0 and self.is_in_exam(),
         )
 
+    def connect_start(self, hostname, port, email, id):
+        if self.request_in_progress:
+            return
+
+        self.request_in_progress = True
+
+        self.button_start.update("Connecting...", disabled=True)
+        self.input_hostname.update(disabled=True)
+        self.input_port.update(disabled=True)
+        self.input_email.update(disabled=True)
+        self.input_id.update(disabled=True)
+
+        def connect():
+            try:
+                omsi_client = OmsiSocketClient(hostname, port, email, id)
+                omsi_client.open()
+                return omsi_client
+            except Exception as e:
+                omsi_client.close()
+                return e
+
+        self.window.perform_long_operation(connect, CONNECT_END_KEY)
+
+    def connect_end(self, res):
+        self.request_in_progress = False
+        self.button_start.update("Start", disabled=False)
+
+        if isinstance(res, Exception):
+            self.input_hostname.update(disabled=False)
+            self.input_port.update(disabled=False)
+            self.input_email.update(disabled=False)
+            self.input_id.update(disabled=False)
+            self.show_error(f"Failed to open connection to server:\n{res}")
+            return
+
+        self.connect_time = time.time()
+        self.omsi_client = res
+
+        self.button_start.update(visible=False)
+        self.text_connected.update(visible=True)
+
+        self.data = OmsiDataManager(self.omsi_client.exam_id)
+        self.data.create_exam_dir()
+        self.data.write_questions(self.omsi_client.get_exam_questions())
+        # self.data.write_supp(self.omsi_client.get_supp_file())
+        self.questions = parse_questions(self.data.questions_path())
+
+        self.combo_options = [
+            "Exam Information",
+            *[f"Question {x}" for x in range(1, len(self.questions))],
+        ]
+
+        self.combo_question.update(values=self.combo_options)
+
+        self.select_question(0)
+
     def show_about(self):
         about_layout = [
             [sg.Push(), sg.Image(WINDOW_ICON), sg.Push()],
@@ -225,7 +287,7 @@ class Omsi:
 
     def show_error(self, message):
         error_layout = [
-            [sg.Image("error.png"), sg.Text("Error:".ljust(32) + "\n" + message)],
+            [sg.Image("error.png"), sg.Text(message.ljust(32))],
             [sg.Button("OK", bind_return_key=True)],
         ]
 
@@ -266,38 +328,7 @@ class Omsi:
             self.show_error("Port is not valid.")
             return
 
-        try:
-            self.omsi_client = OmsiSocketClient(hostname, port, email, id)
-            self.omsi_client.open()
-        except Exception as e:
-            self.show_error(f"Failed to open connection to server:\n\n{e}")
-            self.omsi_client.close()
-            self.omsi_client = None
-            return
-
-        self.input_hostname.update(disabled=True, background_color="grey")
-        self.input_port.update(disabled=True, background_color="grey")
-        self.input_email.update(disabled=True, background_color="grey")
-        self.input_id.update(disabled=True, background_color="grey")
-        self.button_start.update(visible=False)
-        self.text_connected.update(visible=True)
-
-        self.connect_time = time.time()
-
-        self.data = OmsiDataManager(id)
-        self.data.create_exam_dir()
-        self.data.write_questions(self.omsi_client.get_exam_questions())
-        # self.data.write_supp(self.omsi_client.get_supp_file())
-        self.questions = parse_questions(self.data.questions_path())
-
-        self.combo_options = [
-            "Exam Information",
-            *[f"Question {x}" for x in range(1, len(self.questions))],
-        ]
-
-        self.combo_question.update(values=self.combo_options)
-
-        self.select_question(0)
+        self.connect_start(hostname, port, email, id)
 
     def select_question(self, index):
         self.questions[self.selected_question].set_answer(self.answer_box.get())
@@ -322,23 +353,45 @@ class Omsi:
         self.combo_question.update(value=self.combo_options[index])
         self.update_save_status()
 
+    def submit_answer_start(self, index):
+        if self.request_in_progress:
+            return
+        self.request_in_progress = True
+
+        self.button_submit.update("Submitting...", disabled=True)
+        self.combo_question.update(disabled=True)
+
+        def submit():
+            return self.omsi_client.send_file_with_retry(
+                f"omsi_answer{self.questions[index].get_question_number()}{self.questions[index].get_filetype()}",
+                io.BytesIO(self.questions[index].get_answer().encode("utf-8")),
+            )
+
+        self.window.perform_long_operation(submit, SUBMIT_END_KEY)
+
+    def submit_answer_end(self, res):
+        self.request_in_progress = False
+
+        self.button_submit.update("Submit", disabled=False)
+        self.combo_question.update(disabled=False)
+
+        if isinstance(res, Exception):
+            self.show_error("Failed to submit answer to server: " + res)
+            return
+
+        sg.popup_ok(
+            "Server response received:\n" + res,
+            title="Server Response",
+            icon=WINDOW_ICON,
+        )
+
     def submit_answer(self, index):
         if len(self.questions[index].get_answer()) == 0:
             self.show_error("No answer written.")
             return
 
         self.run_answer(index)
-
-        resp = self.omsi_client.send_file_with_retry(
-            f"omsi_answer{self.questions[index].get_question_number()}{self.questions[index].get_filetype()}",
-            io.BytesIO(self.questions[index].get_answer().encode("utf-8")),
-        )
-
-        sg.popup_ok(
-            "Server response received:\n" + resp,
-            title="Server Response",
-            icon=WINDOW_ICON,
-        )
+        self.submit_answer_start(index)
 
     def save_answer(self, index):
         self.questions[index].set_answer(self.answer_box.get())
@@ -367,6 +420,12 @@ class Omsi:
         )
 
     def event_loop(self, event, values):
+        if event == CONNECT_END_KEY:
+            self.connect_end(values[event])
+
+        if event == SUBMIT_END_KEY:
+            self.submit_answer_end(values[event])
+
         if event in self.event_dispatch_table:
             self.event_dispatch_table[event]()
 
