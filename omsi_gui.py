@@ -20,19 +20,30 @@ SUBMIT_END_KEY = "submit_end"
 
 CONFIG_FILE = "omsi_settings.ini"
 
-TITLE_ASCII = """
+ABOUT = """
                           ___    __  __   ____    ___ 
   _ __     ___    ___    / _ \  |  \/  | / ___|  |_ _|
  | '_ \   / _ \  / _ \  | | | | | |\/| | \___ \   | | 
  | | | | |  __/ | (_) | | |_| | | |  | |  ___) |  | | 
  |_| |_|  \___|  \___/   \___/  |_|  |_| |____/  |___|
+
+
+AUTHOR
+ExtraConcentratedJuice
+
+RESPOSITORY
+https://github.com/ExtraConcentratedJuice/neoOMSI
+
+ABOUT
+A just-for-fun unoffical OMSI client implementation.
+You probably shouln't use this on an actual exam.
+
+HOTKEYS
+OPEN PDF  CTRL + D
+COMPILE   CTRL + C
+RUN       CTRL + R
+SAVE      CTRL + S
 """
-
-ABOUT = """       
-Author: ExtraConcentratedJuice
-Repository: https://github.com/ExtraConcentratedJuice/neoOMSI
-
-A just-for-fun unoffical OMSI client implementation. You probably shouln't use this on an actual exam."""
 
 
 class Omsi:
@@ -291,11 +302,20 @@ class Omsi:
 
     def show_about(self):
         about_layout = [
-            [sg.Push(), sg.Text(TITLE_ASCII, font=("Courier New", 8)), sg.Push()],
-            [sg.Text(ABOUT + "\n\nVersion " + VERSION)],
+            [
+                sg.Text(
+                    ABOUT + "\n\nVersion " + VERSION,
+                    font=("Courier New", 14),
+                    justification="center",
+                )
+            ],
             [
                 sg.Image(MATLOFF),
-                sg.Text("Remember, I am always watching.", text_color="red"),
+                sg.Text(
+                    "I am always watching...",
+                    text_color="red",
+                    font=("Courier New", 18),
+                ),
             ]
             if self.is_in_exam()
             else [],
@@ -336,12 +356,6 @@ class Omsi:
         )
 
         layout = [
-            [
-                sg.Frame(
-                    "Hotkeys",
-                    layout=[[sg.Text("Save"), sg.Push(), sg.Input(size=(12,))]],
-                )
-            ],
             [
                 sg.Frame(
                     "Program/File Paths",
@@ -514,8 +528,8 @@ This will open the PDF using the default PDF viewer on your system."""
             return
 
         sg.popup_ok(
-            "Server response received:\n" + res,
-            title="Server Response",
+            "Server Response:\n" + res,
+            title="Submission Result",
             icon=SMALL_WINDOW_ICON,
         )
 
@@ -586,13 +600,17 @@ This will open the PDF using the default PDF viewer on your system."""
                     "Connected %H:%M:%S", time.gmtime(time.time() - self.connect_time)
                 )
             )
+
             if event in self.in_exam_dispatch_table:
                 self.in_exam_dispatch_table[event]()
 
     def run(self):
         self.window.read(timeout=0)
 
-        self.window.bind(self.settings.hotkey_save, "Save")
+        self.window.bind("<Control-s>", self.button_save.key)
+        self.window.bind("<Control-r>", self.button_run.key)
+        self.window.bind("<Control-c>", self.button_compile.key)
+        self.window.bind("<Control-d>", self.button_pdf.key)
 
         self.window.maximize()
         self.update_save_status()
