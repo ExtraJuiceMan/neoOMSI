@@ -303,7 +303,9 @@ class Omsi:
 
     def show_error(self, message):
         error_layout = [
+            [sg.VPush()],
             [sg.Image("error.png"), sg.Text(message.ljust(32))],
+            [sg.VPush()],
             [sg.Button("OK", bind_return_key=True)],
         ]
 
@@ -505,7 +507,7 @@ This will open the PDF using the default PDF viewer on your system."""
         sg.popup_ok(
             "Server response received:\n" + res,
             title="Server Response",
-            icon=WINDOW_ICON,
+            icon=SMALL_WINDOW_ICON,
         )
 
     def submit_answer(self, index):
@@ -556,7 +558,7 @@ This will open the PDF using the default PDF viewer on your system."""
             out.decode("utf-8"),
             title="Run - " + " ".join(run_cmd),
             non_blocking=True,
-            icon=WINDOW_ICON,
+            icon=SMALL_WINDOW_ICON,
         )
 
     def event_loop(self, event, values):
