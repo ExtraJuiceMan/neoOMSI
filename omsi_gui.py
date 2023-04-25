@@ -7,7 +7,7 @@ import time
 import os
 import random
 
-from omsi_client import OmsiSocketClient, OmsiDataManager
+from omsi_client import OmsiSocketClient, OmsiDataManager, VERSION
 from omsi_settings import OmsiSettings
 from omsi_utility import parse_questions
 
@@ -20,10 +20,19 @@ SUBMIT_END_KEY = "submit_end"
 
 CONFIG_FILE = "omsi_settings.ini"
 
-ABOUT = """neoOMSI
+TITLE_ASCII = """
+                          ___    __  __   ____    ___ 
+  _ __     ___    ___    / _ \  |  \/  | / ___|  |_ _|
+ | '_ \   / _ \  / _ \  | | | | | |\/| | \___ \   | | 
+ | | | | |  __/ | (_) | | |_| | | |  | |  ___) |  | | 
+ |_| |_|  \___|  \___/   \___/  |_|  |_| |____/  |___|
+"""
+
+ABOUT = """       
 Author: ExtraConcentratedJuice
 Repository: https://github.com/ExtraConcentratedJuice/neoOMSI
-Fun and better OMSI client that you probably shouldn't use"""
+
+A just-for-fun unoffical OMSI client implementation. You probably shouln't use this on an actual exam."""
 
 
 class Omsi:
@@ -282,8 +291,8 @@ class Omsi:
 
     def show_about(self):
         about_layout = [
-            [sg.Push(), sg.Image(WINDOW_ICON), sg.Push()],
-            [sg.Text(ABOUT)],
+            [sg.Push(), sg.Text(TITLE_ASCII, font=("Courier New", 8)), sg.Push()],
+            [sg.Text(ABOUT + "\n\nVersion " + VERSION)],
             [
                 sg.Image(MATLOFF),
                 sg.Text("Remember, I am always watching.", text_color="red"),

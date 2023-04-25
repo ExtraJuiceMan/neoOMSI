@@ -14,6 +14,7 @@ RESPONSE_ACCEPT_READY = "ReadyToAcceptClientFile"
 EXAM_QUESTIONS_FILE = "ExamQuestions.txt"
 CODE_FILE = "code.R"
 SUPP_FILE = "SuppFile"
+VERSION = open("VERSION", "r").read()
 
 
 class OmsiDataManager:
@@ -130,9 +131,8 @@ class OmsiSocketClient:
         return bytes
 
     def send_file(self, file_name, file_bytes: io.IOBase = None):
-        version = "69.420.1"
         self.send_command(
-            f"OMSI0001\0{file_name}\0{self.email}\0{version}{self.exam_id}"
+            f"OMSI0001\0{file_name}\0{self.email}\0{VERSION}{self.exam_id}"
         )
 
         if self.receive_response() != RESPONSE_ACCEPT_READY:
